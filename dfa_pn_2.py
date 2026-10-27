@@ -170,6 +170,10 @@ if len(all_files) == 0:
 results = []
 print(f"Found {len(all_files)} embedding files.")
 
+raw_folder = os.path.join(output_folder, "dfa_raw")
+os.makedirs(raw_folder, exist_ok=True)
+fluct_rows = []
+
 for idx, fname in enumerate(all_files, start=1):
     try:
         path = os.path.join(embeddings_folder, fname)
@@ -234,6 +238,27 @@ for idx, fname in enumerate(all_files, start=1):
         p_value = 2 * (1 - norm.cdf(abs(z_score))) if not np.isnan(z_score) else np.nan
 
         pnr = np.sum(null_shuffle < alpha) / max(1, len(null_shuffle))
+        np.savez_compressed(
+            os.path.join(raw_folder, f"{participant}_dfa_raw.npz"),
+            sims=sims,
+            nvals=nvals,
+            fluctuations=fluctuations,
+            log_n=np.log10(nvals),
+            log_F=np.log10(fluctuations),
+            alpha=alpha,
+            loglog_r=loglog_corr,
+            null_alphas=null_shuffle,
+            mean_null=mean_null,
+            std_null=std_null,
+            z_score=z_score,
+            p_value=p_value,
+            pnr=pnr,
+        )
+        fluct_rows.extend(
+            {"participant": participant, "n": int(n), "F": float(F),
+             "log10_n": float(np.log10(n)), "log10_F": float(np.log10(F))}
+            for n, F in zip(nvals, fluctuations)
+        )
 
         results.append({
             "participant": participant,
@@ -257,6 +282,7 @@ for idx, fname in enumerate(all_files, start=1):
 results_df = pd.DataFrame(results)
 results_csv = os.path.join(output_folder, "dfa_summary.csv")
 results_df.to_csv(results_csv, index=False)
+pd.DataFrame(fluct_rows).to_csv(os.path.join(output_folder, "dfa_fluctuations_long.csv"), index=False)
 print(f"\n Summary was saved to {results_csv}")
 
 # # group-level plots: real vs shuffled α and PNR
